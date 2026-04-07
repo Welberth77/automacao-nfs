@@ -1,0 +1,11 @@
+# Ignorando o venv
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Ignorando certificados (dados sensíveis das empresas)
+certificados/
+
+# Ignorando json (dados sensíveis das empresas)
+config.json
