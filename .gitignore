@@ -1,11 +1,27 @@
-# Ignorando o venv
+# Dados sensíveis — nunca subir
+dados/
 venv/
+
+# Arquivos temporários Python
 __pycache__/
 *.pyc
-.env
+*.pyo
+*.pyd
+.Python
 
-# Ignorando certificados (dados sensíveis das empresas)
-certificados/
+# Arquivos de build
+build/
+dist/
+*.spec
+*.egg-info/
 
-# Ignorando json (dados sensíveis das empresas)
-config.json
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Arquivos temporários
+*.tmp
+*.bak
