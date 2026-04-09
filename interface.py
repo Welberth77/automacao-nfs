@@ -8,7 +8,6 @@ import pandas as pd
 from datetime import datetime
 
 class RedirectOutput:
-    """Redireciona print() para o log da interface."""
     def __init__(self, callback):
         self.callback = callback
 
@@ -47,6 +46,7 @@ class App(ctk.CTk):
         self.resizable(False, False)
         self.parar = False
         self.rodando = False
+        self.headless = ctk.BooleanVar(value=False)
 
         self._build_ui()
         self._carregar_cidades()
@@ -62,33 +62,35 @@ class App(ctk.CTk):
         self.painel_esq = ctk.CTkFrame(self, width=220, corner_radius=0)
         self.painel_esq.grid(row=0, column=0, sticky="nsew")
         self.painel_esq.grid_propagate(False)
+        self.painel_esq.grid_rowconfigure(3, weight=1)
+        self.painel_esq.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
             self.painel_esq,
             text="NFS-e",
             font=ctk.CTkFont(size=22, weight="bold")
-        ).pack(pady=(25, 2), padx=20, anchor="w")
+        ).grid(row=0, column=0, sticky="w", padx=20, pady=(25, 2))
 
         ctk.CTkLabel(
             self.painel_esq,
             text="Automação de emissão",
             font=ctk.CTkFont(size=12),
             text_color="gray"
-        ).pack(padx=20, anchor="w")
+        ).grid(row=1, column=0, sticky="w", padx=20)
 
         ctk.CTkLabel(
             self.painel_esq,
             text="CIDADES",
             font=ctk.CTkFont(size=11, weight="bold"),
             text_color="gray"
-        ).pack(pady=(25, 8), padx=20, anchor="w")
+        ).grid(row=2, column=0, sticky="w", padx=20, pady=(25, 8))
 
         self.frame_cidades = ctk.CTkScrollableFrame(
             self.painel_esq,
-            height=200,
+            height=120,
             fg_color="transparent"
         )
-        self.frame_cidades.pack(fill="x", padx=12)
+        self.frame_cidades.grid(row=3, column=0, sticky="new", padx=12)
 
         self.var_todas = ctk.BooleanVar()
         ctk.CTkCheckBox(
@@ -97,9 +99,18 @@ class App(ctk.CTk):
             variable=self.var_todas,
             command=self._toggle_todas,
             font=ctk.CTkFont(size=12)
-        ).pack(pady=(12, 4), padx=20, anchor="w")
+        ).grid(row=4, column=0, sticky="w", padx=20, pady=(12, 4))
 
-        ctk.CTkLabel(self.painel_esq, text="", height=1).pack(expand=True)
+        ctk.CTkCheckBox(
+            self.painel_esq,
+            text="Ocultar browser",
+            variable=self.headless,
+            font=ctk.CTkFont(size=12)
+        ).grid(row=5, column=0, sticky="w", padx=20, pady=(4, 12))
+
+        ctk.CTkFrame(
+            self.painel_esq, height=1, fg_color="gray"
+        ).grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 12))
 
         self.btn_iniciar = ctk.CTkButton(
             self.painel_esq,
@@ -109,7 +120,7 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=13, weight="bold"),
             corner_radius=8
         )
-        self.btn_iniciar.pack(pady=(0, 8), padx=16, fill="x")
+        self.btn_iniciar.grid(row=7, column=0, sticky="ew", padx=16, pady=(0, 8))
 
         self.btn_parar = ctk.CTkButton(
             self.painel_esq,
@@ -123,25 +134,17 @@ class App(ctk.CTk):
             corner_radius=8,
             state="disabled"
         )
-        self.btn_parar.pack(pady=(0, 8), padx=16, fill="x")
-
-        # Botão Atualizar com altura controlada pelo frame
-        frame_btn_atualizar = ctk.CTkFrame(
-            self.painel_esq,
-            fg_color="transparent",
-            height=80
-        )
-        frame_btn_atualizar.pack(pady=(0, 20), padx=16, fill="x")
-        frame_btn_atualizar.pack_propagate(False)
+        self.btn_parar.grid(row=8, column=0, sticky="ew", padx=16, pady=(0, 8))
 
         self.btn_atualizar = ctk.CTkButton(
-            frame_btn_atualizar,
+            self.painel_esq,
             text="↻  Atualizar",
             command=self._atualizar,
+            height=60,
             font=ctk.CTkFont(size=13, weight="bold"),
             corner_radius=8
         )
-        self.btn_atualizar.pack(fill="both", expand=True)
+        self.btn_atualizar.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 20))
 
         # ── Painel direito ──
         self.painel_dir = ctk.CTkFrame(self, fg_color="transparent")
@@ -295,7 +298,11 @@ class App(ctk.CTk):
         self.card_ok.configure(text="0")
         self.card_erro.configure(text="0")
 
-        thread = threading.Thread(target=self._rodar, args=(cidades,), daemon=True)
+        thread = threading.Thread(
+            target=self._rodar,
+            args=(cidades, self.headless.get()),
+            daemon=True
+        )
         thread.start()
 
     def _parar(self):
@@ -303,7 +310,7 @@ class App(ctk.CTk):
         self._log("⏹ Parando após a nota atual...")
         self.btn_parar.configure(state="disabled")
 
-    def _rodar(self, cidades):
+    def _rodar(self, cidades, headless: bool):
         from main import (
             validar_planilha,
             atualizar_status,
@@ -369,7 +376,7 @@ class App(ctk.CTk):
                     self._set_status(f"Emitindo nota {original_idx + 1}...")
 
                     try:
-                        modulo.emitir_nfse(cert, nota.to_dict(), original_idx, planilha)
+                        modulo.emitir_nfse(cert, nota.to_dict(), original_idx, planilha, headless)
                         self._log(f"✓ Nota emitida com sucesso!")
                         self.total_ok += 1
                         self.after(0, lambda: self.card_ok.configure(text=str(self.total_ok)))

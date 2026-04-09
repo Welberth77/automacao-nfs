@@ -8,7 +8,7 @@ def aguardar(page, segundos=2):
     page.wait_for_load_state("networkidle")
     time.sleep(segundos)
 
-def emitir_nfse(cert: dict, nota: dict, linha_idx: int, planilha: str):
+def emitir_nfse(cert: dict, nota: dict, linha_idx: int, planilha: str, headless: bool = False):
     cnpj_tomador = str(nota.get('CNPJ Tomador', '')).strip()
     if not cnpj_tomador or cnpj_tomador == 'nan':
         print(f"❌ CNPJ Tomador vazio, pulando...")
@@ -24,7 +24,7 @@ def emitir_nfse(cert: dict, nota: dict, linha_idx: int, planilha: str):
         url = "https://nfe.prefeitura.sp.gov.br/login.aspx"
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=headless)
         context = browser.new_context(
             ignore_https_errors=True,
             client_certificates=[
@@ -131,10 +131,7 @@ def emitir_nfse(cert: dict, nota: dict, linha_idx: int, planilha: str):
             # Passo 11 — Clica em EMITIR
             print("🖱️ Clicando em EMITIR...")
             frame.wait_for_selector("#ctl00_body_btEmitir", timeout=10000)
-
-            # Aceita automaticamente o dialog de confirmação
             page.on("dialog", lambda dialog: dialog.accept())
-
             frame.click("#ctl00_body_btEmitir")
             aguardar(frame, 5)
             print("✅ Nota fiscal emitida!")
@@ -147,7 +144,6 @@ def emitir_nfse(cert: dict, nota: dict, linha_idx: int, planilha: str):
                 pasta_notas = os.path.join(os.path.dirname(planilha), "notas_emitidas")
                 os.makedirs(pasta_notas, exist_ok=True)
 
-                # Nome da empresa vem da planilha, remove caracteres inválidos para nome de arquivo
                 nome_empresa = str(nota.get('Nome da Empresa', 'EMPRESA')).strip()
                 nome_empresa = "".join(c for c in nome_empresa if c.isalnum() or c in " _-").strip()
                 nome_empresa = nome_empresa.replace(" ", "_").upper()
@@ -166,7 +162,6 @@ def emitir_nfse(cert: dict, nota: dict, linha_idx: int, planilha: str):
             except Exception as e:
                 print(f"⚠️ Não foi possível baixar o PDF: {e}")
 
-            # Atualiza status na planilha
             from main import atualizar_status
             atualizar_status(planilha, linha_idx, "OK")
             print("✅ Status atualizado na planilha!")
