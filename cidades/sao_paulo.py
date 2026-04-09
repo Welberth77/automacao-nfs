@@ -3,6 +3,10 @@ import time
 import os
 from datetime import datetime
 from playwright.sync_api import sync_playwright
+import sys
+
+if getattr(sys, 'frozen', False):
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(sys._MEIPASS, "ms-playwright")
 
 def aguardar(page, segundos=2):
     page.wait_for_load_state("networkidle")

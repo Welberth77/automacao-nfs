@@ -6,6 +6,13 @@ import sys
 import importlib
 import pandas as pd
 from datetime import datetime
+import sys
+
+if getattr(sys, 'frozen', False):
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(sys._MEIPASS, "ms-playwright")
+
+# Cidades que NÃO suportam modo headless
+CIDADES_SEM_HEADLESS = ["sao_paulo"]
 
 class RedirectOutput:
     def __init__(self, callback):
@@ -105,6 +112,7 @@ class App(ctk.CTk):
             self.painel_esq,
             text="Ocultar browser",
             variable=self.headless,
+            command=self._toggle_headless,
             font=ctk.CTkFont(size=12)
         ).grid(row=5, column=0, sticky="w", padx=20, pady=(4, 12))
 
@@ -248,6 +256,16 @@ class App(ctk.CTk):
 
         self.card_pendente.configure(text=str(self.total_pendentes))
 
+    def _toggle_headless(self):
+        """Impede ocultar browser em cidades que não suportam headless."""
+        if self.headless.get():
+            cidades_selecionadas = [c for c, v in self.checks.items() if v.get()]
+            conflitos = [c for c in cidades_selecionadas if c in CIDADES_SEM_HEADLESS]
+            if conflitos:
+                nomes = ", ".join(c.replace("_", " ").title() for c in conflitos)
+                self._log(f"⚠ {nomes} não suporta modo oculto — desmarcado!")
+                self.headless.set(False)
+
     def _atualizar(self):
         if self.rodando:
             self._log("⚠ Não é possível atualizar durante a emissão!")
@@ -287,6 +305,14 @@ class App(ctk.CTk):
             self._log("⚠ Selecione pelo menos uma cidade!")
             return
 
+        # Segurança extra — impede headless com cidades incompatíveis
+        if self.headless.get():
+            conflitos = [c for c in cidades if c in CIDADES_SEM_HEADLESS]
+            if conflitos:
+                nomes = ", ".join(c.replace("_", " ").title() for c in conflitos)
+                self._log(f"⚠ {nomes} não suporta modo oculto — desmarque 'Ocultar browser'!")
+                return
+
         self.parar = False
         self.rodando = True
         self.total_ok = 0
@@ -323,6 +349,9 @@ class App(ctk.CTk):
 
             self._log(f"\n── {cidade.upper()} ──")
             self._set_status(f"Processando {cidade}...")
+
+            # Força headless=False para cidades incompatíveis
+            headless_cidade = False if cidade in CIDADES_SEM_HEADLESS else headless
 
             planilha = os.path.join(PASTA_DADOS, cidade, f"{cidade}.xlsx")
             if not os.path.exists(planilha):
@@ -376,7 +405,7 @@ class App(ctk.CTk):
                     self._set_status(f"Emitindo nota {original_idx + 1}...")
 
                     try:
-                        modulo.emitir_nfse(cert, nota.to_dict(), original_idx, planilha, headless)
+                        modulo.emitir_nfse(cert, nota.to_dict(), original_idx, planilha, headless_cidade)
                         self._log(f"✓ Nota emitida com sucesso!")
                         self.total_ok += 1
                         self.after(0, lambda: self.card_ok.configure(text=str(self.total_ok)))
