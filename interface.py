@@ -4,9 +4,9 @@ import threading
 import os
 import sys
 import importlib
+import subprocess
 import pandas as pd
 from datetime import datetime
-import sys
 
 if getattr(sys, 'frozen', False):
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(sys._MEIPASS, "ms-playwright")
@@ -144,6 +144,19 @@ class App(ctk.CTk):
         )
         self.btn_parar.grid(row=8, column=0, sticky="ew", padx=16, pady=(0, 8))
 
+        self.btn_planilha = ctk.CTkButton(
+            self.painel_esq,
+            text="📄  Abrir planilha",
+            command=self._abrir_planilha,
+            height=40,
+            font=ctk.CTkFont(size=12),
+            fg_color="transparent",
+            border_width=1,
+            text_color=("gray20", "gray80"),
+            corner_radius=8
+        )
+        self.btn_planilha.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 8))
+
         self.btn_atualizar = ctk.CTkButton(
             self.painel_esq,
             text="↻  Atualizar",
@@ -152,7 +165,7 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=13, weight="bold"),
             corner_radius=8
         )
-        self.btn_atualizar.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 20))
+        self.btn_atualizar.grid(row=10, column=0, sticky="ew", padx=16, pady=(0, 20))
 
         # ── Painel direito ──
         self.painel_dir = ctk.CTkFrame(self, fg_color="transparent")
@@ -256,8 +269,24 @@ class App(ctk.CTk):
 
         self.card_pendente.configure(text=str(self.total_pendentes))
 
+    def _abrir_planilha(self):
+        """Abre a planilha das cidades selecionadas. Se nenhuma, abre a pasta dados."""
+        cidades_selecionadas = [c for c, v in self.checks.items() if v.get()]
+
+        if not cidades_selecionadas:
+            # Nenhuma cidade selecionada → abre a pasta dados
+            subprocess.Popen(f'explorer "{PASTA_DADOS}"')
+            return
+
+        for cidade in cidades_selecionadas:
+            planilha = os.path.join(PASTA_DADOS, cidade, f"{cidade}.xlsx")
+            if os.path.exists(planilha):
+                os.startfile(planilha)
+                self._log(f"📄 Abrindo planilha: {cidade.replace('_', ' ').title()}")
+            else:
+                self._log(f"⚠ Planilha não encontrada: {cidade}")
+
     def _toggle_headless(self):
-        """Impede ocultar browser em cidades que não suportam headless."""
         if self.headless.get():
             cidades_selecionadas = [c for c, v in self.checks.items() if v.get()]
             conflitos = [c for c in cidades_selecionadas if c in CIDADES_SEM_HEADLESS]
@@ -305,7 +334,6 @@ class App(ctk.CTk):
             self._log("⚠ Selecione pelo menos uma cidade!")
             return
 
-        # Segurança extra — impede headless com cidades incompatíveis
         if self.headless.get():
             conflitos = [c for c in cidades if c in CIDADES_SEM_HEADLESS]
             if conflitos:
@@ -321,6 +349,7 @@ class App(ctk.CTk):
         self.btn_iniciar.configure(state="disabled")
         self.btn_parar.configure(state="normal")
         self.btn_atualizar.configure(state="disabled")
+        self.btn_planilha.configure(state="disabled")
         self.card_ok.configure(text="0")
         self.card_erro.configure(text="0")
 
@@ -350,7 +379,6 @@ class App(ctk.CTk):
             self._log(f"\n── {cidade.upper()} ──")
             self._set_status(f"Processando {cidade}...")
 
-            # Força headless=False para cidades incompatíveis
             headless_cidade = False if cidade in CIDADES_SEM_HEADLESS else headless
 
             planilha = os.path.join(PASTA_DADOS, cidade, f"{cidade}.xlsx")
@@ -423,6 +451,7 @@ class App(ctk.CTk):
         self.after(0, lambda: self.btn_iniciar.configure(state="normal"))
         self.after(0, lambda: self.btn_parar.configure(state="disabled"))
         self.after(0, lambda: self.btn_atualizar.configure(state="normal"))
+        self.after(0, lambda: self.btn_planilha.configure(state="normal"))
         self.rodando = False
 
     def on_closing(self):
